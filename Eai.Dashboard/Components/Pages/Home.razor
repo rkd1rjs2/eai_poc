@@ -1,0 +1,270 @@
+﻿@page "/"
+@using StackExchange.Redis
+@using Eai.Shared.Models
+@using Eai.Shared.Interfaces
+@using System.Text.Json
+@using System.Linq
+@inject IConnectionMultiplexer Redis
+@inject IAuditRepository AuditRepo
+@implements IDisposable
+@rendermode InteractiveServer  
+
+<PageTitle>EAI 실시간 모니터링</PageTitle>
+
+<h1>📊 EAI 데이터 흐름 모니터링</h1>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-light border-primary shadow-sm">
+            <div class="card-body text-center">
+                <h6 class="card-title text-muted">오늘 총 처리</h6>
+                <h2 class="fw-bold">@totalToday</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-light border-success shadow-sm">
+            <div class="card-body text-center">
+                <h6 class="card-title text-muted">성공</h6>
+                <h2 class="text-success fw-bold">@successToday</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-light border-warning shadow-sm">
+            <div class="card-body text-center">
+                <h6 class="card-title text-muted">대기/진행</h6>
+                <h2 class="text-warning fw-bold">@waitingToday</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-light border-danger shadow-sm">
+            <div class="card-body text-center">
+                <h6 class="card-title text-muted">실패</h6>
+                <h2 class="text-danger fw-bold">@failToday</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-database"></i> 시스템별 처리 현황</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>시스템</th>
+                            <th class="text-end">성공</th>
+                            <th class="text-end">대기</th>
+                            <th class="text-end">실패</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (systemSummaries != null)
+                        {
+                            @foreach (var s in systemSummaries)
+                            {
+                                <tr>
+                                    <td>@s.GroupName</td>
+                                    <td class="text-end text-success">@s.SuccessCount</td>
+                                    <td class="text-end text-warning">@s.WaitingCount</td>
+                                    <td class="text-end text-danger">@s.FailCount</td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="bi bi-briefcase"></i> 업무별 처리 현황</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>업무(DataType)</th>
+                            <th class="text-end">성공</th>
+                            <th class="text-end">대기</th>
+                            <th class="text-end">실패</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (businessSummaries != null)
+                        {
+                            @foreach (var b in businessSummaries)
+                            {
+                                <tr>
+                                    <td>@b.GroupName</td>
+                                    <td class="text-end text-success">@b.SuccessCount</td>
+                                    <td class="text-end text-warning">@b.WaitingCount</td>
+                                    <td class="text-end text-danger">@b.FailCount</td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="alert @(Redis.IsConnected ? "alert-success" : "alert-danger")">
+    Redis 연결 상태: @(Redis.IsConnected ? "연결됨" : "연결 안 됨")
+</div>
+<p>실시간 Redis Stream 데이터입니다. <b>더블클릭</b>하면 상세 흐름을 볼 수 있습니다.</p>
+
+@if (messages == null)
+{
+    <p><em>연결 중...</em></p>
+}
+else
+{
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>Trace ID</th>
+                <th>Source</th>
+                <th>Target</th>
+                <th>Data Type</th>
+                <th>Payload</th>
+                <th>Timestamp</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var msg in messages)
+            {
+                string? dataJson = msg.Values.FirstOrDefault(x => x.Name == "data").Value;
+                var eaiMsg = !string.IsNullOrEmpty(dataJson) ? JsonSerializer.Deserialize<EaiMessage>(dataJson) : null;
+                
+                <tr @ondblclick="() => ShowDetail(eaiMsg?.TraceId)" style="cursor: pointer;">
+                    <td>@(eaiMsg?.TraceId ?? "N/A")</td>
+                    <td>@(eaiMsg?.SourceSystem ?? "N/A")</td>
+                    <td>@(eaiMsg?.TargetSystem ?? "N/A")</td>
+                    <td>@(eaiMsg?.DataType ?? "N/A")</td>
+                    <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        @(eaiMsg?.Payload ?? "N/A")
+                    </td>
+                    <td>@(eaiMsg?.Timestamp.ToString("HH:mm:ss.fff") ?? "N/A")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (selectedAudit != null)
+{
+    <div class="modal fade show" style="display: block; background: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Transaction Flow Detail</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <h6>TraceId: @selectedAudit.TraceId</h6>
+                    <hr />
+                    
+                    <div class="d-flex justify-content-between align-items-center mb-4 text-center">
+                        <div class="p-3 border rounded @GetStepClass("READY")">
+                            <i class="bi bi-database"></i><br/>Producer<br/>
+                            <small>@selectedAudit.CreatedAt.ToString("HH:mm:ss.fff")</small>
+                        </div>
+                        <div class="flex-grow-1 border-top mx-2"></div>
+                        <div class="p-3 border rounded @GetStepClass("PROCESSING")">
+                            <i class="bi bi-cpu"></i><br/>Transformer<br/>
+                            <small>@(selectedAudit.UpdatedAt?.ToString("HH:mm:ss.fff") ?? "Wait...")</small>
+                        </div>
+                        <div class="flex-grow-1 border-top mx-2"></div>
+                        <div class="p-3 border rounded @GetStepClass("SUCCESS")">
+                            <i class="bi bi-check-circle"></i><br/>Target<br/>
+                            <small>@selectedAudit.Status</small>
+                        </div>
+                    </div>
+
+                    <table class="table table-sm">
+                        <tr><th>Idempotency Key</th><td>@selectedAudit.IdempotencyKey</td></tr>
+                        <tr><th>Source</th><td>@selectedAudit.SourceSystem</td></tr>
+                        <tr><th>Target</th><td>@selectedAudit.TargetSystem</td></tr>
+                        <tr><th>Data Type</th><td>@selectedAudit.DataType</td></tr>
+                        <tr><th>Status</th><td><span class="badge @(selectedAudit.Status == "SUCCESS" ? "bg-success" : "bg-warning")">@selectedAudit.Status</span></td></tr>
+                        @if (!string.IsNullOrEmpty(selectedAudit.ErrorMessage))
+                        {
+                            <tr><th>Error</th><td class="text-danger">@selectedAudit.ErrorMessage</td></tr>
+                        }
+                    </table>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private StreamEntry[]? messages;
+    private Timer? timer;
+    private AuditLogModel? selectedAudit;
+
+    private IEnumerable<ProcessingSummary>? systemSummaries;
+    private IEnumerable<ProcessingSummary>? businessSummaries;
+    private int totalToday;
+    private int successToday;
+    private int waitingToday;
+    private int failToday;
+
+    protected override void OnInitialized()
+    {
+        timer = new Timer(async _ =>
+        {
+            try 
+            {
+                var db = Redis.GetDatabase();
+                messages = await db.StreamRangeAsync("HR_STREAM", null, null, 15, Order.Descending);
+                
+                var today = DateTime.UtcNow.Date;
+                systemSummaries = await AuditRepo.GetSystemSummaryAsync(today);
+                businessSummaries = await AuditRepo.GetBusinessSummaryAsync(today);
+
+                totalToday = systemSummaries.Sum(s => s.TotalCount);
+                successToday = systemSummaries.Sum(s => s.SuccessCount);
+                waitingToday = systemSummaries.Sum(s => s.WaitingCount);
+                failToday = systemSummaries.Sum(s => s.FailCount);
+
+                await InvokeAsync(StateHasChanged);
+            }
+            catch (Exception ex) { Console.WriteLine($"대시보드 갱신 에러: {ex.Message}"); }
+        }, null, 0, 1000);
+    }
+
+    private async Task ShowDetail(string? traceId)
+    {
+        if (string.IsNullOrEmpty(traceId)) return;
+        selectedAudit = await AuditRepo.GetAuditLogAsync(traceId);
+        StateHasChanged();
+    }
+
+    private void CloseModal() => selectedAudit = null;
+
+    private string GetStepClass(string step)
+    {
+        if (selectedAudit == null) return "bg-light";
+        
+        if (step == "READY") return "bg-primary text-white";
+        if (step == "PROCESSING" && (selectedAudit.Status == "PROCESSING" || selectedAudit.Status == "SUCCESS")) return "bg-primary text-white";
+        if (step == "SUCCESS" && selectedAudit.Status == "SUCCESS") return "bg-success text-white";
+        
+        return "bg-light";
+    }
+
+    public void Dispose() => timer?.Dispose();
+}

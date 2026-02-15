@@ -1,0 +1,90 @@
+services:
+  # ---------------------------------------------------------------------------
+  # Infrastructure Group
+  # ---------------------------------------------------------------------------
+  eai-redis:
+    image: redis:latest
+    container_name: eai-redis
+    ports:
+      - "6380:6379"
+    networks:
+      - eai-network
+
+  eai-db:
+    image: postgres:latest
+    container_name: eai-db
+    environment:
+      POSTGRES_USER: eai_user
+      POSTGRES_PASSWORD: eai_password
+      POSTGRES_DB: postgres # 초기화용
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./infra/init-db:/docker-entrypoint-initdb.d
+      - eai_db_data:/var/lib/postgresql
+    networks:
+      - eai-network
+
+  # ---------------------------------------------------------------------------
+  # EAI Application Group
+  # ---------------------------------------------------------------------------
+  eai-producer:
+    build:
+      context: .
+      dockerfile: Eai.Producer/Dockerfile
+    container_name: eai-producer
+    restart: always
+    depends_on:
+      - eai-db
+      - eai-redis
+    environment:
+      - ConnectionStrings__EaiCoreDb=Host=eai-db;Database=eai_core_db;Username=eai_user;Password=eai_password
+      - ConnectionStrings__HrDb=Host=eai-db;Database=hr_domain_db;Username=eai_user;Password=eai_password
+      - ConnectionStrings__AcDb=Host=eai-db;Database=ac_domain_db;Username=eai_user;Password=eai_password
+      - ConnectionStrings__ArDb=Host=eai-db;Database=ar_domain_db;Username=eai_user;Password=eai_password
+      - Redis__ConnectionString=eai-redis:6379
+    networks:
+      - eai-network
+
+  eai-transformer:
+    build:
+      context: .
+      dockerfile: Eai.Transformer/Dockerfile
+    container_name: eai-transformer
+    restart: always
+    depends_on:
+      - eai-db
+      - eai-redis
+    environment:
+      - ConnectionStrings__AuditDb=Host=eai-db;Database=eai_core_db;Username=eai_user;Password=eai_password
+      - Redis__ConnectionString=eai-redis:6379
+      - EaiSettings__ConsumerGroup=EAI_TRANSFORMER_GROUP
+      - EaiSettings__StreamName=HR_STREAM
+    networks:
+      - eai-network
+
+  eai-dashboard:
+    build:
+      context: .
+      dockerfile: Eai.Dashboard/Dockerfile
+    container_name: eai-dashboard
+    restart: always
+    ports:
+      - "5160:8080"
+    depends_on:
+      - eai-db
+      - eai-redis
+    environment:
+      - ConnectionStrings__AuditDb=Host=eai-db;Database=eai_core_db;Username=eai_user;Password=eai_password
+      - Redis__ConnectionString=eai-redis:6379
+      - ASPNETCORE_URLS=http://+:8080
+      - ASPNETCORE_ENVIRONMENT=Development
+    networks:
+      - eai-network
+
+networks:
+  eai-network:
+    driver: bridge
+
+volumes:
+  eai_db_data:

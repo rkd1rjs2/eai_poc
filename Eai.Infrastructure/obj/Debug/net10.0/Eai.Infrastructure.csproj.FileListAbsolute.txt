@@ -1,0 +1,15 @@
+C:\workspace\EAI_poc\Eai.Infrastructure\bin\Debug\net10.0\Eai.Infrastructure.deps.json
+C:\workspace\EAI_poc\Eai.Infrastructure\bin\Debug\net10.0\Eai.Infrastructure.dll
+C:\workspace\EAI_poc\Eai.Infrastructure\bin\Debug\net10.0\Eai.Infrastructure.pdb
+C:\workspace\EAI_poc\Eai.Infrastructure\bin\Debug\net10.0\Eai.Shared.dll
+C:\workspace\EAI_poc\Eai.Infrastructure\bin\Debug\net10.0\Eai.Shared.pdb
+C:\workspace\EAI_poc\Eai.Infrastructure\obj\Debug\net10.0\Eai.Infrastructure.csproj.AssemblyReference.cache
+C:\workspace\EAI_poc\Eai.Infrastructure\obj\Debug\net10.0\Eai.Infrastructure.GeneratedMSBuildEditorConfig.editorconfig
+C:\workspace\EAI_poc\Eai.Infrastructure\obj\Debug\net10.0\Eai.Infrastructure.AssemblyInfoInputs.cache
+C:\workspace\EAI_poc\Eai.Infrastructure\obj\Debug\net10.0\Eai.Infrastructure.AssemblyInfo.cs
+C:\workspace\EAI_poc\Eai.Infrastructure\obj\Debug\net10.0\Eai.Infrastructure.csproj.CoreCompileInputs.cache
+C:\workspace\EAI_poc\Eai.Infrastructure\obj\Debug\net10.0\Eai.Infr.C712EB08.Up2Date
+C:\workspace\EAI_poc\Eai.Infrastructure\obj\Debug\net10.0\Eai.Infrastructure.dll
+C:\workspace\EAI_poc\Eai.Infrastructure\obj\Debug\net10.0\refint\Eai.Infrastructure.dll
+C:\workspace\EAI_poc\Eai.Infrastructure\obj\Debug\net10.0\Eai.Infrastructure.pdb
+C:\workspace\EAI_poc\Eai.Infrastructure\obj\Debug\net10.0\ref\Eai.Infrastructure.dll
